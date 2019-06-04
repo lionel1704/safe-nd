@@ -9,9 +9,10 @@
 // of the SAFE Network Software.
 
 use crate::immutable_data::UnpubImmutableData;
-use crate::mutable_data::{SeqMutableData, UnseqMutableData};
+use crate::mutable_data::{MutableData, SeqMutableData, UnseqMutableData, Value};
 use crate::MessageId;
 use routing::ClientError;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// RPC responses from vaults.
 #[derive(Hash, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
@@ -36,6 +37,34 @@ pub enum Response<ErrorType> {
         res: Result<(), ErrorType>,
         msg_id: MessageId,
     },
+    GetMDataShell {
+        res: Result<MutableData, ErrorType>,
+        msg_id: MessageId,
+    },
+    GetMDataVersion {
+        res: Result<u64, ErrorType>,
+        msg_id: MessageId,
+    },
+    ListUnseqMDataEntries {
+        res: Result<BTreeMap<Vec<u8>, Vec<u8>>, ErrorType>,
+        msg_id: MessageId,
+    },
+    ListSeqMDataEntries {
+        res: Result<BTreeMap<Vec<u8>, Value>, ErrorType>,
+        msg_id: MessageId,
+    },
+    ListMDataKeys {
+        res: Result<BTreeSet<Vec<u8>>, ErrorType>,
+        msg_id: MessageId,
+    },
+    ListSeqMDataValues {
+        res: Result<Vec<Value>, ErrorType>,
+        msg_id: MessageId,
+    },
+    ListUnseqMDataValues {
+        res: Result<Vec<Vec<u8>>, ErrorType>,
+        msg_id: MessageId,
+    },
 }
 
 use std::fmt;
@@ -50,6 +79,13 @@ impl fmt::Debug for Response<ClientError> {
             Response::PutUnseqMData { .. } => "Response::PutUnseqMData",
             Response::GetSeqMData { .. } => "Response::GetSeqMData",
             Response::PutSeqMData { .. } => "Response::PutSeqMData",
+            Response::GetMDataShell { .. } => "Response::GetMDataShell",
+            Response::GetMDataVersion { .. } => "Response::GetMDataVersion",
+            Response::ListUnseqMDataEntries { .. } => "Response::ListUnseqMDataEntries",
+            Response::ListSeqMDataEntries { .. } => "Response::ListSeqMDataEntries",
+            Response::ListMDataKeys { .. } => "Response::ListMDataKeys",
+            Response::ListSeqMDataValues { .. } => "Response::ListSeqMDataValues",
+            Response::ListUnseqMDataValues { .. } => "Response::ListUnseqMDataValues",
         };
         write!(f, "{}", printable)
     }

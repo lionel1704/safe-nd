@@ -16,7 +16,51 @@ use std::mem;
 use std::vec::Vec;
 use threshold_crypto::*;
 
-/// Mutable data that is unpublished on the network. This data can only be fetch by the owners / those in the permissions fields with `Permission::Read` access.
+/// Mutable data that is unpublished on the network. This data can only be fetched by the owners / those in the permissions fields with `Permission::Read` access.
+#[derive(Clone, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum MutableData {
+    Sequenced(SeqMutableData),
+    Unsequenced(UnseqMutableData),
+}
+
+impl MutableData {
+    pub fn name(&self) -> XorName {
+        match self {
+            MutableData::Sequenced(data) => *data.name(),
+            MutableData::Unsequenced(data) => *data.name(),
+        }
+    }
+
+    pub fn tag(&self) -> u64 {
+        match self {
+            MutableData::Sequenced(data) => data.tag(),
+            MutableData::Unsequenced(data) => data.tag(),
+        }
+    }
+
+    pub fn shell(&self) -> Self {
+        match self {
+            MutableData::Sequenced(data) => MutableData::Sequenced(data.shell()),
+            MutableData::Unsequenced(data) => MutableData::Unsequenced(data.shell()),
+        }
+    }
+
+    pub fn version(&self) -> u64 {
+        match self {
+            MutableData::Sequenced(data) => data.version(),
+            MutableData::Unsequenced(data) => data.version(),
+        }
+    }
+
+    pub fn keys(&self) -> BTreeSet<Vec<u8>> {
+        match self {
+            MutableData::Sequenced(data) => data.keys(),
+            MutableData::Unsequenced(data) => data.keys(),
+        }
+    }
+}
+
+/// Mutable data that is unpublished on the network. This data can only be fetched by the owners / those in the permissions fields with `Permission::Read` access.
 #[derive(Hash, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
 pub struct SeqMutableData {
     /// Network address.
@@ -41,6 +85,12 @@ pub struct Value {
     data: Vec<u8>,
     /// SHALL be incremented sequentially for any change to `data`.
     version: u64,
+}
+
+impl Value {
+    pub fn new(data: Vec<u8>, version: u64) -> Self {
+        Value { data, version }
+    }
 }
 
 /// Mutable data that is unpublished on the network. This data can only be fetch by the owners / those in the permissions fields with `Permission::Read` access.
@@ -136,22 +186,14 @@ impl UnseqMutableData {
         }
     }
 
-    /// Returns values of all entries
-    pub fn values(&self, requester: PublicKey) -> Result<Vec<&Vec<u8>>, DataError> {
-        if self.is_action_allowed(requester, Action::Read) {
-            Ok(self.data.values().collect())
-        } else {
-            Err(DataError::AccessDenied)
-        }
+    /// Returns the values of all entries
+    pub fn values(&self) -> Vec<Vec<u8>> {
+        self.data.values().cloned().collect()
     }
 
     /// Returns all entries
-    pub fn entries(&self, requester: PublicKey) -> Result<&BTreeMap<Vec<u8>, Vec<u8>>, DataError> {
-        if self.is_action_allowed(requester, Action::Read) {
-            Ok(&self.data)
-        } else {
-            Err(DataError::AccessDenied)
-        }
+    pub fn entries(&self) -> &BTreeMap<Vec<u8>, Vec<u8>> {
+        &self.data
     }
 
     /// Removes and returns all entries
@@ -280,8 +322,8 @@ impl UnseqMutableData {
     }
 
     /// Returns all the keys in the data
-    pub fn keys(&self) -> BTreeSet<&Vec<u8>> {
-        self.data.keys().collect()
+    pub fn keys(&self) -> BTreeSet<Vec<u8>> {
+        self.data.keys().cloned().collect()
     }
 
     /// Gets a complete list of permissions
@@ -408,21 +450,13 @@ impl SeqMutableData {
     }
 
     /// Returns values of all entries
-    pub fn values(&self, requester: PublicKey) -> Result<Vec<&Value>, DataError> {
-        if self.owners == requester {
-            Ok(self.data.values().collect())
-        } else {
-            Err(DataError::AccessDenied)
-        }
+    pub fn values(&self) -> Vec<Value> {
+        self.data.values().cloned().collect()
     }
 
     /// Returns all entries
-    pub fn entries(&self, requester: PublicKey) -> Result<&BTreeMap<Vec<u8>, Value>, DataError> {
-        if self.owners == requester {
-            Ok(&self.data)
-        } else {
-            Err(DataError::AccessDenied)
-        }
+    pub fn entries(&self) -> &BTreeMap<Vec<u8>, Value> {
+        &self.data
     }
 
     /// Removes and returns all entries
@@ -561,8 +595,8 @@ impl SeqMutableData {
         &self.owners
     }
     /// Returns all the keys in the data
-    pub fn keys(&self) -> BTreeSet<&Vec<u8>> {
-        self.data.keys().collect()
+    pub fn keys(&self) -> BTreeSet<Vec<u8>> {
+        self.data.keys().cloned().collect()
     }
 
     /// Gets a complete list of permissions
