@@ -20,7 +20,6 @@ pub enum Response<ErrorType> {
     GetUnpubIData(Result<UnpubImmutableData, ErrorType>),
     PutUnpubIData(Result<(), ErrorType>),
     DeleteUnpubIData(Result<(), ErrorType>),
-
     GetUnseqMData {
         res: Result<UnseqMutableData, ErrorType>,
         msg_id: MessageId,
@@ -63,6 +62,9 @@ pub enum Response<ErrorType> {
     },
     ListUnseqMDataValues {
         res: Result<Vec<Vec<u8>>, ErrorType>,
+    },
+    DeleteMData {
+        res: Result<(), ErrorType>,
         msg_id: MessageId,
     },
 }
@@ -75,6 +77,7 @@ impl fmt::Debug for Response<ClientError> {
             Response::GetUnpubIData { .. } => "Response::GetUnpubIData",
             Response::PutUnpubIData { .. } => "Response::PutUnpubIData",
             Response::DeleteUnpubIData { .. } => "Response::DeleteUnpubIData",
+            Response::DeleteMData { .. } => "Response::DeleteMData",
             Response::GetUnseqMData { .. } => "Response::GetUnseqMData",
             Response::PutUnseqMData { .. } => "Response::PutUnseqMData",
             Response::GetSeqMData { .. } => "Response::GetSeqMData",

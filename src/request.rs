@@ -21,10 +21,18 @@ pub enum Request {
     GetUnpubIData(XorName),
     PutUnpubIData(UnpubImmutableData),
     DeleteUnpubIData(XorName),
-
+    DeleteMData {
+        // Address of the mutable data to be fetched
+        address: MutableDataRef,
+        // Requester public key
+        requester: threshold_crypto::PublicKey,
+        // Unique message Identifier
+        message_id: MessageId,
+    },
     GetUnseqMData {
         // Address of the mutable data to be fetched
         address: MutableDataRef,
+        // Requester public key
         requester: threshold_crypto::PublicKey,
         // Unique message Identifier
         message_id: MessageId,
@@ -112,6 +120,7 @@ impl fmt::Debug for Request {
             Request::ListMDataKeys { .. } => "Request::ListMDataKeys",
             Request::ListUnseqMDataValues { .. } => "Request::ListUnseqMDataValues",
             Request::ListSeqMDataValues { .. } => "Request::ListSeqMDataValues",
+            Request::DeleteMData { .. } => "Request::DeleteMData",
         };
         write!(f, "{}", printable)
     }

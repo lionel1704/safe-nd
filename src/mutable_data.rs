@@ -14,7 +14,7 @@ use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet};
 use std::mem;
 use std::vec::Vec;
-use threshold_crypto::*;
+use threshold_crypto::PublicKey;
 
 /// Mutable data that is unpublished on the network. This data can only be fetched by the owners / those in the permissions fields with `Permission::Read` access.
 #[derive(Clone, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
