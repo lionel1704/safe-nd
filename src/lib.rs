@@ -1,4 +1,4 @@
-// Copyright 2019 MaidSafe.net limited.
+// Copyright 2020 MaidSafe.net limited.
 //
 // This SAFE Network Software is licensed to you under the MIT license <LICENSE-MIT
 // https://opensource.org/licenses/MIT> or the Modified BSD license <LICENSE-BSD
@@ -28,8 +28,8 @@
     unused_results
 )]
 
-mod append_only_data;
 mod coins;
+mod data;
 mod errors;
 mod identity;
 mod immutable_data;
@@ -37,20 +37,17 @@ mod keys;
 mod mutable_data;
 mod request;
 mod response;
+mod shared_types;
 mod utils;
 
-pub use append_only_data::{
-    Action as ADataAction, Address as ADataAddress, AppendOnlyData,
-    AppendOperation as ADataAppendOperation, Data as AData, Entries as ADataEntries,
-    Entry as ADataEntry, Index as ADataIndex, Indices as ADataIndices, Kind as ADataKind,
-    Owner as ADataOwner, Permissions as ADataPermissions,
-    PubPermissionSet as ADataPubPermissionSet, PubPermissions as ADataPubPermissions,
-    PubSeqData as PubSeqAppendOnlyData, PubUnseqData as PubUnseqAppendOnlyData, SeqAppendOnly,
-    UnpubPermissionSet as ADataUnpubPermissionSet, UnpubPermissions as ADataUnpubPermissions,
-    UnpubSeqData as UnpubSeqAppendOnlyData, UnpubUnseqData as UnpubUnseqAppendOnlyData,
-    UnseqAppendOnly, User as ADataUser,
-};
 pub use coins::Coins;
+pub use data::access_control::{
+    AccessList, AccessType, PrivateAccessList, PrivateUserAccess, PublicAccessList,
+    PublicUserAccess,
+};
+pub use data::{
+    AppendOperation, PrivateSequence, PublicSequence, Sequence, SequenceEntry, SequenceValues,
+};
 pub use errors::{EntryError, Error, Result};
 pub use identity::{
     app::{FullId as AppFullId, PublicId as AppPublicId},
@@ -75,6 +72,9 @@ pub use mutable_data::{
 pub use request::{LoginPacket, Request, Type as RequestType, MAX_LOGIN_PACKET_BYTES};
 pub use response::{Response, TryFromError};
 pub use sha3::Sha3_512 as Ed25519Digest;
+pub use shared_types::{
+    Address, ExpectedVersions, Key, Keys, Owner, Scope, User, Value, Values, Version,
+};
 pub use utils::verify_signature;
 
 use hex_fmt::HexFmt;
@@ -96,23 +96,18 @@ pub enum Data {
     Immutable(IData),
     /// MutableData.
     Mutable(MData),
-    /// AppendOnlyData.
-    AppendOnly(AData),
+    /// Sequence
+    Sequence(Sequence),
 }
 
 impl Data {
-    /// Returns true if published.
-    pub fn is_pub(&self) -> bool {
+    /// Returns true if public.
+    pub fn is_public(&self) -> bool {
         match *self {
             Self::Immutable(ref idata) => idata.is_pub(),
             Self::Mutable(_) => false,
-            Self::AppendOnly(ref adata) => adata.is_pub(),
+            Self::Sequence(ref data) => data.is_public(),
         }
-    }
-
-    /// Returns true if unpublished.
-    pub fn is_unpub(&self) -> bool {
-        !self.is_pub()
     }
 }
 
@@ -128,13 +123,13 @@ impl From<MData> for Data {
     }
 }
 
-impl From<AData> for Data {
-    fn from(data: AData) -> Self {
-        Self::AppendOnly(data)
+impl From<Sequence> for Data {
+    fn from(data: Sequence) -> Self {
+        Data::Sequence(data)
     }
 }
 
-/// Permissions for an app stored by the Client Handlers.
+/// Permissions for an app stored by the Elders.
 #[derive(
     Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Clone, Serialize, Deserialize, Default, Debug,
 )]
@@ -307,6 +302,7 @@ pub struct Notification(pub Transaction);
 
 #[cfg(test)]
 mod tests {
+    use crate::Address;
     use crate::XorName;
     use unwrap::unwrap;
 
@@ -316,5 +312,14 @@ mod tests {
         let encoded = name.encode_to_zbase32();
         let decoded = unwrap!(XorName::decode_from_zbase32(&encoded));
         assert_eq!(name, decoded);
+    }
+
+    #[test]
+    fn zbase32_encodes_and_decodes_data_address() {
+        let name = XorName(rand::random());
+        let address = Address::Private { name, tag: 15000 };
+        let encoded = address.encode_to_zbase32();
+        let decoded = unwrap!(Address::decode_from_zbase32(&encoded));
+        assert_eq!(address, decoded);
     }
 }
