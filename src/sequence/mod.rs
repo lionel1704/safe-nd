@@ -1380,7 +1380,9 @@ mod tests {
     }
 
     // Generate a vec of Sequence replicas of some length
-    fn generate_replicas(max_quantity: usize) -> impl Strategy<Value = (Vec<Sequence>, PublicKey)> {
+    fn generate_replicas(
+        max_quantity: usize,
+    ) -> impl Strategy<Value = Result<(Vec<Sequence>, PublicKey)>> {
         let xorname = XorName::random();
         let tag = 45_000u64;
         let owner = generate_public_key();
@@ -1395,11 +1397,11 @@ mod tests {
 
             // set the same owner in all replicas
             let perms = BTreeMap::default();
-            let owner_op = replicas[0].set_public_policy(owner, perms).unwrap();
+            let owner_op = replicas[0].set_public_policy(owner, perms)?;
             for r in replicas.iter_mut() {
-                r.apply_public_policy_op(owner_op.clone()).unwrap();
+                r.apply_public_policy_op(owner_op.clone())?;
             }
-            (replicas, owner)
+            Ok((replicas, owner))
         })
     }
 
@@ -1491,8 +1493,9 @@ mod tests {
         #[test]
         fn proptest_seq_converge_with_many_random_data_across_arbitrary_number_of_replicas(
             dataset in generate_dataset(500),
-            (mut replicas, _pk) in generate_replicas(50)
+            res in generate_replicas(50)
         ) {
+            let (mut replicas, _pk) = res?;
             let dataset_length = dataset.len() as u64;
 
             // insert our data at replicas
@@ -1514,8 +1517,9 @@ mod tests {
         #[test]
         fn proptest_converge_with_shuffled_op_set_across_arbitrary_number_of_replicas(
             dataset in generate_dataset(100),
-            (mut replicas, _pk) in generate_replicas(500)
+            res in generate_replicas(500)
         ) {
+            let (mut replicas, _pk) = res?;
             let dataset_length = dataset.len() as u64;
 
             // generate an ops set from one replica
@@ -1547,8 +1551,9 @@ mod tests {
         #[test]
         fn proptest_converge_with_shuffled_ops_from_many_replicas_across_arbitrary_number_of_replicas(
             dataset in generate_dataset(1000),
-            (mut replicas, _pk) in generate_replicas(100)
+            res in generate_replicas(100)
         ) {
+            let (mut replicas, _pk) = res?;
             let dataset_length = dataset.len() as u64;
 
             // generate an ops set using random replica for each data
@@ -1818,8 +1823,9 @@ mod tests {
         #[test]
         fn proptest_converge_with_shuffled_ops_from_many_while_dropping_some_at_random(
             dataset in generate_dataset_and_probability(1000),
-            (mut replicas, _pk) in generate_replicas(100),
+            res in generate_replicas(100),
         ) {
+            let (mut replicas, _pk) = res?;
             let dataset_length = dataset.len() as u64;
 
             // generate an ops set using random replica for each data
@@ -1861,9 +1867,10 @@ mod tests {
             dataset in generate_dataset(1000),
             // should be same number as dataset
             bogus_dataset in generate_dataset(1000),
-            (mut replicas, _pk) in generate_replicas(100),
+            res in generate_replicas(100),
 
         ) {
+            let (mut replicas, _pk) = res?;
             let dataset_length = dataset.len();
             let bogus_dataset_length = bogus_dataset.len();
             let number_replicas = replicas.len();
@@ -1875,7 +1882,7 @@ mod tests {
             let actor = generate_public_key();
             let mut bogus_replica = Sequence::new_public(owner, actor, xorname, tag);
             let perms = BTreeMap::default();
-            let _ = bogus_replica.set_public_policy(owner, perms).unwrap();
+            let _ = bogus_replica.set_public_policy(owner, perms)?;
 
             // generate the real ops set using random replica for each data
             let mut ops = vec![];

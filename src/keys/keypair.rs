@@ -207,7 +207,7 @@ pub struct BlsKeypairShare {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils;
+    use crate::errors::convert_bincode_error;
     use bincode::deserialize as deserialise;
 
     fn gen_keypairs() -> Vec<Keypair> {
@@ -230,7 +230,7 @@ mod tests {
         let keypairs = gen_keypairs();
 
         for keypair in keypairs {
-            let encoded = utils::serialise(&keypair);
+            let encoded = bincode::serialize(&keypair).map_err(convert_bincode_error)?;
             let decoded: Keypair = deserialise(&encoded).map_err(|_| "Error deserialising key")?;
 
             assert_eq!(decoded, keypair);

@@ -40,9 +40,10 @@ pub use self::{
     transfer::{TransferCmd, TransferQuery},
 };
 use crate::{
-    errors::ErrorDebug, utils, AppPermissions, Blob, DebitAgreementProof, Error, Map, MapEntries,
-    MapPermissionSet, MapValue, MapValues, Money, PublicKey, ReplicaEvent, ReplicaPublicKeySet,
-    Result, Sequence, SequenceEntries, SequenceEntry, SequencePermissions, SequencePrivatePolicy,
+    errors::{convert_bincode_error, ErrorDebug},
+    AppPermissions, Blob, DebitAgreementProof, Error, Map, MapEntries, MapPermissionSet, MapValue,
+    MapValues, Money, PublicKey, ReplicaEvent, ReplicaPublicKeySet, Result, Sequence,
+    SequenceEntries, SequenceEntry, SequencePermissions, SequencePrivatePolicy,
     SequencePublicPolicy, Signature, TransferValidated,
 };
 use serde::{Deserialize, Serialize};
@@ -55,7 +56,7 @@ use xor_name::XorName;
 
 ///
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub struct MsgEnvelope {
     ///
     pub message: Message,
@@ -76,16 +77,16 @@ impl MsgEnvelope {
     /// It does work for the cases we have,
     /// but it does so without being clearly robust/flexible.
     /// So, needs some improvement..
-    pub fn verify(&self) -> bool {
+    pub fn verify(&self) -> Result<bool> {
         let data = if self.proxies.is_empty() {
-            utils::serialise(&self.message)
+            bincode::serialize(&self.message).map_err(convert_bincode_error)?
         } else {
             let mut msg = self.clone();
             let _ = msg.proxies.pop();
-            utils::serialise(&msg)
+            bincode::serialize(&msg).map_err(convert_bincode_error)?
         };
         let sender = self.most_recent_sender();
-        sender.verify(&data)
+        Ok(sender.verify(&data))
     }
 
     /// The proxy would first sign the MsgEnvelope,
@@ -170,7 +171,7 @@ impl MsgEnvelope {
 
 ///
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Message {
     /// A Cmd is leads to a write / change of state.
     /// We expect them to be successful, and only return a msg
@@ -328,7 +329,7 @@ pub enum TransferError {
 /// Events from the network that
 /// are pushed to the client.
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]
-#[derive(Debug, Hash, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Event {
     /// The transfer was validated by a Replica instance.
     TransferValidated {
@@ -366,7 +367,7 @@ impl Event {
 
 /// Query responses from the network.
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]
-#[derive(Hash, Eq, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub enum QueryResponse {
     //
     // ===== Blob =====
@@ -605,9 +606,8 @@ impl fmt::Debug for QueryResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{PublicBlob, UnseqMap};
+    use crate::{PublicBlob, Result, UnseqMap};
     use std::convert::{TryFrom, TryInto};
-    use unwrap::{unwrap, unwrap_err};
 
     #[test]
     fn debug_format() {
@@ -620,15 +620,20 @@ mod tests {
     }
 
     #[test]
-    fn try_from() {
+    fn try_from() -> Result<()> {
         use QueryResponse::*;
 
         let i_data = Blob::Public(PublicBlob::new(vec![1, 3, 1, 4]));
         let e = Error::AccessDenied;
-        assert_eq!(i_data, unwrap!(GetBlob(Ok(i_data.clone())).try_into()));
         assert_eq!(
-            TryFromError::Response(e.clone()),
-            unwrap_err!(Blob::try_from(GetBlob(Err(e.clone()))))
+            i_data,
+            GetBlob(Ok(i_data.clone()))
+                .try_into()
+                .map_err(|_| Error::Unexpected("Mismatched types".to_string()))?
+        );
+        assert_eq!(
+            Err(TryFromError::Response(e.clone())),
+            Blob::try_from(GetBlob(Err(e.clone())))
         );
 
         let mut data = BTreeMap::new();
@@ -641,10 +646,16 @@ mod tests {
             BTreeMap::new(),
             owners,
         ));
-        assert_eq!(m_data, unwrap!(GetMap(Ok(m_data.clone())).try_into()));
         assert_eq!(
-            TryFromError::Response(e.clone()),
-            unwrap_err!(Map::try_from(GetMap(Err(e))))
+            m_data,
+            GetMap(Ok(m_data.clone()))
+                .try_into()
+                .map_err(|_| Error::Unexpected("Mismatched types".to_string()))?
         );
+        assert_eq!(
+            Err(TryFromError::Response(e.clone())),
+            Map::try_from(GetMap(Err(e)))
+        );
+        Ok(())
     }
 }
